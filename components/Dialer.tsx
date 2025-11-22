@@ -28,6 +28,8 @@ export const Dialer: React.FC<DialerProps> = ({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isParallelMode, setIsParallelMode] = useState(false);
   const [internalLeads, setInternalLeads] = useState<Lead[]>(leads);
+  const [manualPhoneNumber, setManualPhoneNumber] = useState('');
+  const [manualName, setManualName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync internal leads when props change, but allow sorting locally
@@ -113,6 +115,35 @@ export const Dialer: React.FC<DialerProps> = ({
     alert("Leads re-ordered by AI propensity score.");
   };
 
+  const handleManualCall = () => {
+    if (!manualPhoneNumber.trim()) {
+      alert("Please enter a phone number");
+      return;
+    }
+
+    // Create a temporary lead for the manual call
+    const manualLead: Lead = {
+      id: `manual-${Date.now()}`,
+      name: manualName.trim() || 'Manual Call',
+      title: 'Contact',
+      company: 'Manual',
+      phone: manualPhoneNumber.trim(),
+      status: 'New',
+      lastActivity: 'Just now',
+      personaPrompt: `You are calling ${manualName.trim() || 'a prospect'}.`
+    };
+
+    onCall(manualLead);
+    setManualPhoneNumber('');
+    setManualName('');
+  };
+
+  const formatPhoneInput = (value: string) => {
+    // Remove all non-numeric characters except +
+    const cleaned = value.replace(/[^\d+]/g, '');
+    setManualPhoneNumber(cleaned);
+  };
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -139,7 +170,7 @@ export const Dialer: React.FC<DialerProps> = ({
             const name = parts[0] || 'Unknown Prospect';
             const title = parts[1] || 'Contact';
             const company = parts[2] || 'Unknown Co';
-            const phone = parts[3] || '555-0123';
+            const phone = parts[3] || '';
 
             const uniqueId = `lead-${Date.now()}-${i}-${Math.floor(Math.random() * 10000)}`;
 
@@ -169,6 +200,45 @@ export const Dialer: React.FC<DialerProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+      {/* Manual Dialer Section */}
+      <div className="p-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-bold text-slate-800 flex items-center">
+            <Phone size={16} className="mr-2 text-blue-600" />
+            Quick Dial
+          </h3>
+          <span className="text-xs text-slate-500">
+            Using: {twilioNumbers.find(n => n.id === selectedNumberId)?.label || 'Select number'}
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <input
+            type="text"
+            placeholder="Name (optional)"
+            value={manualName}
+            onChange={(e) => setManualName(e.target.value)}
+            className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+          />
+          <input
+            type="tel"
+            placeholder="Phone number (e.g., +1234567890)"
+            value={manualPhoneNumber}
+            onChange={(e) => formatPhoneInput(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleManualCall()}
+            className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+          />
+          <button
+            type="button"
+            onClick={handleManualCall}
+            disabled={!manualPhoneNumber.trim() || twilioNumbers.length === 0}
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-bold rounded-md shadow-sm transition-colors"
+          >
+            <Phone size={16} />
+            <span>Call Now</span>
+          </button>
+        </div>
+      </div>
+
       {/* Toolbar */}
       <div className="p-4 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50">
         <div className="flex items-center space-x-4">

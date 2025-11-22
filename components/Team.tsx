@@ -3,16 +3,8 @@ import React, { useState } from 'react';
 import { Users, UserPlus, MoreVertical, Mail, Shield, TrendingUp, Phone } from 'lucide-react';
 import { TeamMember } from '../types';
 
-const MOCK_TEAM_MEMBERS: TeamMember[] = [
-  { id: '1', name: 'Alex Sales', email: 'alex@company.com', role: 'Admin', status: 'Active', performance: { calls: 1240, meetings: 45 }, avatar: 'AS' },
-  { id: '2', name: 'Sarah Miller', email: 'sarah@company.com', role: 'Agent', status: 'Active', performance: { calls: 980, meetings: 32 }, avatar: 'SM' },
-  { id: '3', name: 'Mike Ross', email: 'mike@company.com', role: 'Agent', status: 'Active', performance: { calls: 1150, meetings: 38 }, avatar: 'MR' },
-  { id: '4', name: 'Jessica Pearson', email: 'jessica@company.com', role: 'Manager', status: 'Active', performance: { calls: 450, meetings: 12 }, avatar: 'JP' },
-  { id: '5', name: 'Louis Litt', email: 'louis@company.com', role: 'Agent', status: 'Inactive', performance: { calls: 0, meetings: 0 }, avatar: 'LL' },
-];
-
 export const Team: React.FC = () => {
-  const [members, setMembers] = useState<TeamMember[]>(MOCK_TEAM_MEMBERS);
+  const [members, setMembers] = useState<TeamMember[]>([]);
 
   return (
     <div className="p-8 bg-slate-50 h-full overflow-y-auto">

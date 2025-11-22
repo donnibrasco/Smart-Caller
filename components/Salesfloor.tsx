@@ -2,39 +2,9 @@
 import React, { useEffect, useState } from 'react';
 import { Mic, Headphones, Clock, Users, Phone } from 'lucide-react';
 import { SalesfloorUser } from '../types';
-import { MockSocketService } from '../services/mockSocket';
 
-const INITIAL_TEAM: SalesfloorUser[] = [
-  { id: '1', name: 'Alex Sales (You)', avatar: 'AS', status: 'Available' },
-  { id: '2', name: 'Sarah Miller', avatar: 'SM', status: 'On Call', currentTask: 'Calling: TechCorp Inc', callDuration: 45 },
-  { id: '3', name: 'Mike Ross', avatar: 'MR', status: 'Wrap Up', currentTask: 'Notes: Qualify Lead' },
-  { id: '4', name: 'Jessica Pearson', avatar: 'JP', status: 'Away' },
-  { id: '5', name: 'Harvey Specter', avatar: 'HS', status: 'On Call', currentTask: 'Closing: Pearson Hardman', callDuration: 120 },
-  { id: '6', name: 'Donna Paulsen', avatar: 'DP', status: 'Available' },
-];
-
-interface SalesfloorProps {
-  socket: MockSocketService;
-}
-
-export const Salesfloor: React.FC<SalesfloorProps> = ({ socket }) => {
-  const [team, setTeam] = useState<SalesfloorUser[]>(INITIAL_TEAM);
-
-  useEffect(() => {
-    const handleStatusUpdate = (data: any) => {
-      setTeam(prev => prev.map(user => {
-        if (user.name.includes(data.userName)) {
-          return { ...user, ...data };
-        }
-        return user;
-      }));
-    };
-
-    socket.on('status_update', handleStatusUpdate);
-    return () => {
-      socket.off('status_update', handleStatusUpdate);
-    };
-  }, [socket]);
+export const Salesfloor: React.FC = () => {
+  const [team, setTeam] = useState<SalesfloorUser[]>([]);
 
   // Simulate local call timers for active calls
   useEffect(() => {

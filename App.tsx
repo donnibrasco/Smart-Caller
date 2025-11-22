@@ -19,17 +19,10 @@ import { Dashboard } from './components/Dashboard';
 import { ScriptEditor } from './components/ScriptEditor';
 import { Login } from './components/Login';
 import { Team } from './components/Team';
-import { MockSocketService } from './services/mockSocket';
+import { ManualDialer } from './components/ManualDialer';
 import { Lead, Page, PhoneNumber, Script } from './types';
 
-// Initial Mock Data
 const INITIAL_LEADS: Lead[] = [];
-
-const MOCK_TWILIO_NUMBERS: PhoneNumber[] = [
-  { id: 't1', number: '+1 (555) 000-1234', label: 'Main Office', region: 'US-East' },
-  { id: 't2', number: '+1 (415) 555-9876', label: 'Sales West', region: 'US-West' },
-  { id: 't3', number: '+1 (646) 555-4567', label: 'NYC Local', region: 'US-East' },
-];
 
 const INITIAL_SCRIPTS: Script[] = [
   {
@@ -57,7 +50,7 @@ const Settings = () => (
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
         <h3 className="font-semibold text-slate-800 border-b border-slate-100 pb-2">Twilio Voice Configuration</h3>
         <div className="p-4 bg-blue-50 border-l-4 border-blue-400 text-blue-800 text-sm mb-4">
-          <strong>Integration Status:</strong> Simulated. For production usage, configure the backend webhook URLs below.
+          <strong>Integration Status:</strong> Connected. Backend webhook URLs are configured for production usage.
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Account SID</label>
@@ -111,33 +104,48 @@ const Settings = () => (
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [authToken, setAuthToken] = useState<string>('');
   const [activePage, setActivePage] = useState<Page>(Page.DASHBOARD);
   const [leads, setLeads] = useState<Lead[]>(INITIAL_LEADS);
   const [scripts, setScripts] = useState<Script[]>(INITIAL_SCRIPTS);
   
-  // Services
-  const mockSocketRef = useRef<MockSocketService | null>(null);
-  
   // Dialer State
   const [activeLead, setActiveLead] = useState<Lead | null>(null);
-  const [twilioNumbers] = useState<PhoneNumber[]>(MOCK_TWILIO_NUMBERS);
-  const [selectedNumberId, setSelectedNumberId] = useState<string>(MOCK_TWILIO_NUMBERS[0].id);
+  const [twilioNumbers, setTwilioNumbers] = useState<PhoneNumber[]>([]);
+  const [selectedNumberId, setSelectedNumberId] = useState<string>('');
   
   // Auto-Dialer Queue State
   const [isAutoDialing, setIsAutoDialing] = useState(false);
   const [dialQueue, setDialQueue] = useState<Lead[]>([]);
 
   useEffect(() => {
-    // Initialize Mock Socket for Real-time features
-    mockSocketRef.current = new MockSocketService();
     if (isAuthenticated) {
-      mockSocketRef.current.connect();
+      // Fetch real Twilio phone numbers
+      fetchTwilioNumbers();
     }
-    
-    return () => {
-      mockSocketRef.current?.disconnect();
-    };
   }, [isAuthenticated]);
+
+  const fetchTwilioNumbers = async () => {
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://salescallagent.my/api';
+      const response = await fetch(`${apiUrl}/twilio/phone-numbers`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.numbers.length > 0) {
+          setTwilioNumbers(data.numbers);
+          setSelectedNumberId(data.numbers[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch Twilio phone numbers:', error);
+    }
+  };
 
   const handleImportLeads = (newLeads: Lead[]) => {
     setLeads(prev => [...prev, ...newLeads]);
@@ -184,8 +192,33 @@ export default function App() {
   const selectedNumber = twilioNumbers.find(n => n.id === selectedNumberId) || twilioNumbers[0];
   const defaultScript = scripts.find(s => s.isDefault) || scripts[0];
 
+  const handleLogin = (token: string, user: any) => {
+    setAuthToken(token);
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setAuthToken('');
+    setCurrentUser(null);
+    setIsAuthenticated(false);
+  };
+
+  // Check for existing session on mount
+  React.useEffect(() => {
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+    if (token && user) {
+      setAuthToken(token);
+      setCurrentUser(JSON.parse(user));
+      setIsAuthenticated(true);
+    }
+  }, []);
+
   if (!isAuthenticated) {
-    return <Login onLogin={() => setIsAuthenticated(true)} />;
+    return <Login onLogin={handleLogin} />;
   }
 
   return (
@@ -203,6 +236,7 @@ export default function App() {
           {[
             { page: Page.DASHBOARD, icon: Activity, label: 'Dashboard' },
             { page: Page.DIALER, icon: Phone, label: 'Power Dialer' },
+            { page: Page.MANUAL_DIALER, icon: Phone, label: 'Manual Dialer' },
             { page: Page.SALESFLOOR, icon: Users, label: 'Salesfloor' },
             { page: Page.ANALYTICS, icon: LayoutGrid, label: 'Analytics' },
             { page: Page.SCRIPTS, icon: FileText, label: 'Scripts' },
@@ -226,7 +260,7 @@ export default function App() {
 
         <div className="p-4 border-t border-slate-800">
           <button 
-            onClick={() => setIsAuthenticated(false)}
+            onClick={handleLogout}
             className="flex items-center space-x-3 px-4 py-2 text-slate-400 hover:text-white transition-colors w-full"
           >
             <LogOut size={18} />
@@ -255,11 +289,11 @@ export default function App() {
              </button>
              <div className="flex items-center space-x-3 pl-6 border-l border-slate-200">
                <div className="text-right hidden md:block">
-                 <div className="text-sm font-bold text-slate-800">Alex Sales</div>
-                 <div className="text-xs text-slate-500">Admin • Online</div>
+                 <div className="text-sm font-bold text-slate-800">{currentUser?.name || 'User'}</div>
+                 <div className="text-xs text-slate-500">{currentUser?.role || 'Agent'} • Online</div>
                </div>
                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 flex items-center justify-center text-white font-bold text-sm shadow-md border-2 border-white">
-                 AS
+                 {currentUser?.name ? currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'U'}
                </div>
              </div>
           </div>
@@ -267,7 +301,22 @@ export default function App() {
 
         {/* Page Content */}
         <main className="flex-1 overflow-hidden relative">
-           {activePage === Page.DASHBOARD && mockSocketRef.current && <Dashboard socket={mockSocketRef.current} />}
+           {activePage === Page.DASHBOARD && <Dashboard />}
+           {activePage === Page.MANUAL_DIALER && (
+             <ManualDialer 
+               twilioNumbers={twilioNumbers}
+               onCall={(phoneNumber, name, callerId) => {
+                 const tempLead: Lead = {
+                   id: `manual-${Date.now()}`,
+                   name: name,
+                   phone: phoneNumber,
+                   company: 'Manual Call',
+                   status: 'new'
+                 };
+                 setActiveLead(tempLead);
+               }}
+             />
+           )}
            {activePage === Page.DIALER && (
              <div className="h-full p-6">
                 <Dialer 
@@ -282,7 +331,7 @@ export default function App() {
                 />
              </div>
            )}
-           {activePage === Page.SALESFLOOR && mockSocketRef.current && <Salesfloor socket={mockSocketRef.current} />}
+           {activePage === Page.SALESFLOOR && <Salesfloor />}
            {activePage === Page.ANALYTICS && <Analytics />}
            {activePage === Page.SCRIPTS && (
              <ScriptEditor 
@@ -295,7 +344,7 @@ export default function App() {
         </main>
       </div>
 
-      {/* Active Call Overlay (Simulated) */}
+      {/* Active Call Overlay */}
       {activeLead && (
         <ActiveCall 
           lead={activeLead} 

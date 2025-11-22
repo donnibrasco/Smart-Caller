@@ -1,24 +1,16 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-
-const data = [
-  { name: 'Mon', calls: 40, connects: 24 },
-  { name: 'Tue', calls: 30, connects: 13 },
-  { name: 'Wed', calls: 90, connects: 45 },
-  { name: 'Thu', calls: 65, connects: 30 },
-  { name: 'Fri', calls: 55, connects: 20 },
-];
-
-const pieData = [
-  { name: 'Connected', value: 400 },
-  { name: 'No Answer', value: 300 },
-  { name: 'Voicemail', value: 300 },
-  { name: 'Busy', value: 200 },
-];
 
 const COLORS = ['#3b82f6', '#94a3b8', '#cbd5e1', '#f1f5f9'];
 
 export const Analytics: React.FC = () => {
+  const [data, setData] = useState<any[]>([]);
+  const [pieData, setPieData] = useState<any[]>([]);
+  const [metrics, setMetrics] = useState({
+    totalCalls: 0,
+    connectRate: 0,
+    conversations: 0
+  });
   return (
     <div className="p-8 overflow-y-auto h-full bg-slate-50">
       <h2 className="text-2xl font-bold text-slate-800 mb-6">Performance Analytics</h2>
@@ -26,18 +18,18 @@ export const Analytics: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <div className="text-sm text-slate-500 font-medium uppercase tracking-wide">Total Calls</div>
-          <div className="text-4xl font-bold text-slate-900 mt-2">1,245</div>
-          <div className="text-green-600 text-sm mt-1 flex items-center">▲ 12% vs last week</div>
+          <div className="text-4xl font-bold text-slate-900 mt-2">{metrics.totalCalls.toLocaleString()}</div>
+          <div className="text-slate-400 text-sm mt-1 flex items-center">No data yet</div>
         </div>
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <div className="text-sm text-slate-500 font-medium uppercase tracking-wide">Connect Rate</div>
-          <div className="text-4xl font-bold text-slate-900 mt-2">8.4%</div>
-          <div className="text-red-500 text-sm mt-1 flex items-center">▼ 1.2% vs last week</div>
+          <div className="text-4xl font-bold text-slate-900 mt-2">{metrics.connectRate > 0 ? metrics.connectRate.toFixed(1) + '%' : '0%'}</div>
+          <div className="text-slate-400 text-sm mt-1 flex items-center">No data yet</div>
         </div>
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <div className="text-sm text-slate-500 font-medium uppercase tracking-wide">Conversations</div>
-          <div className="text-4xl font-bold text-slate-900 mt-2">104</div>
-          <div className="text-green-600 text-sm mt-1 flex items-center">▲ 5% vs last week</div>
+          <div className="text-4xl font-bold text-slate-900 mt-2">{metrics.conversations}</div>
+          <div className="text-slate-400 text-sm mt-1 flex items-center">No data yet</div>
         </div>
       </div>
 

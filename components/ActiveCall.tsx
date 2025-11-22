@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Mic, MicOff, PhoneOff, User, Building, History, FileText, Zap, PenTool, Database, Sparkles, Voicemail, Circle } from 'lucide-react';
 import { Lead, CallState, PhoneNumber, Script } from '../types';
-import { GeminiLiveService } from '../services/gemini';
+import { TwilioVoiceService } from '../services/twilioVoice';
 
 interface ActiveCallProps {
   lead: Lead;
@@ -16,13 +16,11 @@ export const ActiveCall: React.FC<ActiveCallProps> = ({ lead, callerId, isAutoDi
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [status, setStatus] = useState<CallState>(CallState.DIALING);
-  const [transcripts, setTranscripts] = useState<{role: 'user' | 'ai', text: string}[]>([]);
   const [activeTab, setActiveTab] = useState<'script' | 'notes' | 'crm'>('script');
   const [notes, setNotes] = useState('');
   const [coachingTip, setCoachingTip] = useState<string | null>(null);
   
-  const geminiService = useRef<GeminiLiveService | null>(null);
-  const transcriptContainerRef = useRef<HTMLDivElement>(null);
+  const twilioService = useRef<TwilioVoiceService | null>(null);
 
   useEffect(() => {
     let timer: any;
@@ -33,60 +31,68 @@ export const ActiveCall: React.FC<ActiveCallProps> = ({ lead, callerId, isAutoDi
   }, [status]);
 
   useEffect(() => {
-    // Initialize Gemini Service
-    const service = new GeminiLiveService();
-    geminiService.current = service;
-
-    service.onConnect = () => {
-      setStatus(CallState.CONNECTED);
-    };
+    const apiUrl = import.meta.env.VITE_API_URL || 'https://salescallagent.my/api';
     
-    service.onDisconnect = () => {
-      setStatus(CallState.ENDING);
+    // Initialize Twilio Voice Service
+    const initCall = async () => {
+      try {
+        // Get Twilio token from backend
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${apiUrl}/calls/token`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to get voice token');
+        }
+
+        const data = await response.json();
+        
+        // Initialize Twilio Device
+        const service = new TwilioVoiceService();
+        twilioService.current = service;
+
+        service.onConnect = () => {
+          setStatus(CallState.CONNECTED);
+        };
+        
+        service.onDisconnect = () => {
+          setStatus(CallState.ENDING);
+          setTimeout(() => {
+            onHangup();
+          }, 1500);
+        };
+
+        service.onError = (error) => {
+          console.error('Call error:', error);
+          alert(`Call error: ${error}`);
+          onHangup();
+        };
+
+        await service.initialize(data.token);
+        
+        // Make the call
+        await service.makeCall(lead.phone, callerId.number);
+        
+      } catch (err: any) {
+        console.error("Failed to connect call", err);
+        const errorMessage = err.message || "Unknown error";
+        alert(`Could not connect call: ${errorMessage}`);
+        onHangup();
+      }
     };
 
-    service.onTranscriptionUpdate = (userText, aiText) => {
-       if (userText) {
-         setTranscripts(prev => {
-            const last = prev[prev.length - 1];
-            if (last && last.role === 'user') {
-                return [...prev.slice(0, -1), { role: 'user', text: prev.slice(0, -1).length > 0 ?  last.text + userText : userText }];
-            }
-            return [...prev, { role: 'user', text: userText }];
-         });
-         // Mock AI Coaching Trigger on certain keywords
-         if (userText.toLowerCase().includes('price') || userText.toLowerCase().includes('cost')) {
-            setCoachingTip("Focus on value, not just price. Mention ROI.");
-            setTimeout(() => setCoachingTip(null), 5000);
-         }
-       }
-       if (aiText) {
-          setTranscripts(prev => {
-             return [...prev, { role: 'ai', text: aiText }];
-          });
-       }
-    };
-
-    // Start connection
-    service.connect(lead.personaPrompt).catch(err => {
-      console.error("Failed to connect call", err);
-      alert("Could not connect to AI Service. Check API Key.");
-      onHangup();
-    });
+    initCall();
 
     return () => {
-      service.disconnect();
+      if (twilioService.current) {
+        twilioService.current.destroy();
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Scroll to bottom
-  useEffect(() => {
-    if (transcriptContainerRef.current) {
-      transcriptContainerRef.current.scrollTop = transcriptContainerRef.current.scrollHeight;
-    }
-  }, [transcripts]);
-
 
   const formatTime = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -97,6 +103,17 @@ export const ActiveCall: React.FC<ActiveCallProps> = ({ lead, callerId, isAutoDi
   const handleVmDrop = () => {
     alert("Dropping pre-recorded Voicemail...");
     onHangup();
+  };
+
+  const toggleMute = () => {
+    if (twilioService.current) {
+      if (isMuted) {
+        twilioService.current.unmute();
+      } else {
+        twilioService.current.mute();
+      }
+      setIsMuted(!isMuted);
+    }
   };
 
   // Process script variables
@@ -205,7 +222,6 @@ export const ActiveCall: React.FC<ActiveCallProps> = ({ lead, callerId, isAutoDi
                     <Database size={16} className="mr-2" /> Salesforce Data
                   </h3>
                  <div className="p-3 bg-slate-50 rounded border border-slate-200 text-xs space-y-2">
-                    <div className="flex justify-between"><span className="text-slate-500">Owner:</span> <span className="font-medium">Alex Sales</span></div>
                     <div className="flex justify-between"><span className="text-slate-500">Stage:</span> <span className="font-medium">Discovery</span></div>
                     <div className="flex justify-between"><span className="text-slate-500">Amount:</span> <span className="font-medium">$12,000</span></div>
                     <div className="flex justify-between"><span className="text-slate-500">Close Date:</span> <span className="font-medium">Oct 30, 2025</span></div>
@@ -287,31 +303,12 @@ export const ActiveCall: React.FC<ActiveCallProps> = ({ lead, callerId, isAutoDi
                  </div>
                </div>
              )}
-            
-            {/* Live Transcript Overlay */}
-            <div className="absolute bottom-0 left-0 right-0 h-56 bg-gradient-to-t from-slate-900 via-slate-900/90 to-transparent p-6 flex flex-col justify-end">
-                <div ref={transcriptContainerRef} className="overflow-y-auto max-h-40 space-y-2 px-4 scroll-smooth custom-scrollbar">
-                    {transcripts.length === 0 && <p className="text-slate-500 text-center italic text-sm">AI connecting...</p>}
-                    {transcripts.map((t, i) => (
-                      <div key={i} className={`flex ${t.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`px-4 py-2 rounded-2xl text-sm max-w-[85%] shadow-sm ${
-                          t.role === 'user' 
-                             ? 'bg-blue-600 text-white rounded-br-none' 
-                             : 'bg-slate-800 text-slate-200 rounded-bl-none border border-slate-700'
-                        }`}>
-                          <span className="text-[10px] opacity-50 block mb-1">{t.role === 'user' ? 'You' : 'Prospect'}</span>
-                          {t.text}
-                        </div>
-                      </div>
-                    ))}
-                </div>
-            </div>
           </div>
 
           {/* Controls */}
           <div className="h-24 bg-slate-50 border-t border-slate-200 flex items-center justify-center space-x-6 relative z-20">
              <button 
-               onClick={() => setIsMuted(!isMuted)}
+               onClick={toggleMute}
                className={`p-4 rounded-full transition-all ${isMuted ? 'bg-slate-200 text-slate-500' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 shadow-sm'}`}
                title={isMuted ? "Unmute" : "Mute"}
              >

@@ -2,41 +2,16 @@
 import React, { useEffect, useState } from 'react';
 import { Activity, Phone, Clock, Calendar, TrendingUp, User, Zap, Target, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { MockSocketService } from '../services/mockSocket';
 
-const chartData = [
-  { time: '9am', calls: 20 },
-  { time: '10am', calls: 45 },
-  { time: '11am', calls: 78 },
-  { time: '12pm', calls: 50 },
-  { time: '1pm', calls: 65 },
-  { time: '2pm', calls: 95 },
-  { time: '3pm', calls: 80 },
-];
-
-const INITIAL_FEED = [
-  { id: 1, user: 'Alex Sales', action: 'booked a meeting', target: 'Acme Corp', time: '2m ago', type: 'success' },
-  { id: 2, user: 'Sarah Miller', action: 'connected with', target: 'TechStar Inc', time: '5m ago', type: 'neutral' },
-  { id: 3, user: 'Mike Ross', action: 'left a voicemail', target: 'Global Logistics', time: '8m ago', type: 'neutral' },
-];
-
-interface DashboardProps {
-  socket: MockSocketService;
-}
-
-export const Dashboard: React.FC<DashboardProps> = ({ socket }) => {
-  const [feed, setFeed] = useState(INITIAL_FEED);
-
-  useEffect(() => {
-    const handleActivity = (data: any) => {
-      setFeed(prev => [data, ...prev.slice(0, 10)]);
-    };
-
-    socket.on('activity', handleActivity);
-    return () => {
-      socket.off('activity', handleActivity);
-    };
-  }, [socket]);
+export const Dashboard: React.FC = () => {
+  const [feed, setFeed] = useState<any[]>([]);
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [metrics, setMetrics] = useState({
+    dailyCalls: 0,
+    connectRate: 0,
+    meetingsBooked: 0,
+    avgTalkTime: '0m 0s'
+  });
 
   return (
     <div className="p-8 bg-slate-50 h-full overflow-y-auto">
@@ -58,11 +33,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ socket }) => {
               <div className="p-2 bg-blue-50 rounded-lg">
                 <Phone className="text-blue-600" size={20} />
               </div>
-              <span className="flex items-center text-green-600 text-xs font-bold bg-green-50 px-2 py-1 rounded-full">
-                <ArrowUpRight size={12} className="mr-1" /> 12%
-              </span>
            </div>
-           <div className="text-3xl font-bold text-slate-900">1,248</div>
+           <div className="text-3xl font-bold text-slate-900">{metrics.dailyCalls.toLocaleString()}</div>
            <div className="text-slate-500 text-sm mt-1">Daily Calls</div>
            <div className="absolute bottom-0 left-0 w-full h-1 bg-blue-500"></div>
         </div>
@@ -72,11 +44,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ socket }) => {
               <div className="p-2 bg-purple-50 rounded-lg">
                 <Zap className="text-purple-600" size={20} />
               </div>
-              <span className="flex items-center text-green-600 text-xs font-bold bg-green-50 px-2 py-1 rounded-full">
-                <ArrowUpRight size={12} className="mr-1" /> 5%
-              </span>
            </div>
-           <div className="text-3xl font-bold text-slate-900">8.4%</div>
+           <div className="text-3xl font-bold text-slate-900">{metrics.connectRate > 0 ? metrics.connectRate.toFixed(1) + '%' : '0%'}</div>
            <div className="text-slate-500 text-sm mt-1">Connect Rate</div>
            <div className="absolute bottom-0 left-0 w-full h-1 bg-purple-500"></div>
         </div>
@@ -86,11 +55,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ socket }) => {
               <div className="p-2 bg-orange-50 rounded-lg">
                 <Target className="text-orange-600" size={20} />
               </div>
-              <span className="flex items-center text-red-600 text-xs font-bold bg-red-50 px-2 py-1 rounded-full">
-                <ArrowDownRight size={12} className="mr-1" /> 2%
-              </span>
            </div>
-           <div className="text-3xl font-bold text-slate-900">24</div>
+           <div className="text-3xl font-bold text-slate-900">{metrics.meetingsBooked}</div>
            <div className="text-slate-500 text-sm mt-1">Meetings Booked</div>
            <div className="absolute bottom-0 left-0 w-full h-1 bg-orange-500"></div>
         </div>
@@ -100,11 +66,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ socket }) => {
               <div className="p-2 bg-emerald-50 rounded-lg">
                 <Clock className="text-emerald-600" size={20} />
               </div>
-              <span className="flex items-center text-green-600 text-xs font-bold bg-green-50 px-2 py-1 rounded-full">
-                <ArrowUpRight size={12} className="mr-1" /> 8%
-              </span>
            </div>
-           <div className="text-3xl font-bold text-slate-900">3m 45s</div>
+           <div className="text-3xl font-bold text-slate-900">{metrics.avgTalkTime}</div>
            <div className="text-slate-500 text-sm mt-1">Avg Talk Time</div>
            <div className="absolute bottom-0 left-0 w-full h-1 bg-emerald-500"></div>
         </div>

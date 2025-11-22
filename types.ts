@@ -2,6 +2,7 @@
 export enum Page {
   DASHBOARD = 'DASHBOARD',
   DIALER = 'DIALER',
+  MANUAL_DIALER = 'MANUAL_DIALER',
   ANALYTICS = 'ANALYTICS',
   SETTINGS = 'SETTINGS',
   SALESFLOOR = 'SALESFLOOR',
@@ -12,19 +13,25 @@ export enum Page {
 export interface Lead {
   id: string;
   name: string;
-  title: string;
+  title?: string;
   company: string;
   phone: string;
-  status: 'New' | 'Contacted' | 'Qualified' | 'Lost';
-  lastActivity: string;
-  personaPrompt: string; // Instructions for Gemini to act as this person
+  status: 'new' | 'New' | 'Contacted' | 'Qualified' | 'Lost';
+  lastActivity?: string;
+  personaPrompt?: string; // Instructions for Gemini to act as this person
 }
 
 export interface PhoneNumber {
-  id: string;
+  id?: string;
+  sid: string;
   number: string;
-  label: string;
-  region: string;
+  label?: string;
+  region?: string;
+  capabilities?: {
+    voice: boolean;
+    sms: boolean;
+    mms: boolean;
+  };
 }
 
 export enum CallState {

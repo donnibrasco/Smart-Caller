@@ -1,22 +1,48 @@
 
 import React, { useState } from 'react';
-import { Phone, Lock, Mail, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Phone, Lock, Mail, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 
 interface LoginProps {
-  onLogin: () => void;
+  onLogin: (token: string, user: any) => void;
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    setError('');
+
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://salescallagent.my/api';
+      const response = await fetch(`${apiUrl}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+
+      // Store token
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      
+      onLogin(data.token, data.user);
+    } catch (err: any) {
+      setError(err.message || 'Login failed. Please try again.');
+    } finally {
       setLoading(false);
-      onLogin();
-    }, 1000);
+    }
   };
 
   return (
@@ -35,6 +61,13 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </div>
 
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
+          {error && (
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2 text-red-400 text-sm">
+              <AlertCircle size={16} />
+              <span>{error}</span>
+            </div>
+          )}
+          
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">Work Email</label>
@@ -44,7 +77,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   type="email" 
                   className="w-full bg-slate-900/50 border border-slate-700 rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                   placeholder="name@company.com"
-                  defaultValue="demo@creativeprocess.io"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
                 />
               </div>
             </div>
@@ -57,7 +92,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   type="password" 
                   className="w-full bg-slate-900/50 border border-slate-700 rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                   placeholder="••••••••"
-                  defaultValue="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
                 />
               </div>
             </div>

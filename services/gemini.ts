@@ -18,11 +18,19 @@ export class GeminiLiveService {
   public onDisconnect: (() => void) | null = null;
 
   constructor() {
-    const apiKey = process.env.API_KEY || '';
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+    if (!apiKey) {
+      console.warn('Gemini API key not configured. Set VITE_GEMINI_API_KEY in .env file.');
+    }
     this.ai = new GoogleGenAI({ apiKey });
   }
 
   async connect(personaInstruction: string) {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error('Gemini API key not configured. Please add VITE_GEMINI_API_KEY to your .env file.');
+    }
+
     this.inputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
     this.outputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
     this.outputNode = this.outputAudioContext.createGain();
