@@ -1,0 +1,7 @@
+{
+  "name": "creativeprocess.io Caller",
+  "description": "A high-fidelity sales dialer application by creativeprocess.io featuring AI-powered roleplay simulation and CSV lead management.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
