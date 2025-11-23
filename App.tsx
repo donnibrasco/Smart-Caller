@@ -9,7 +9,8 @@ import {
   Search,
   Users,
   FileText,
-  Activity
+  Activity,
+  History
 } from 'lucide-react';
 import { Dialer } from './components/Dialer';
 import { Analytics } from './components/Analytics';
@@ -20,6 +21,8 @@ import { ScriptEditor } from './components/ScriptEditor';
 import { Login } from './components/Login';
 import { Team } from './components/Team';
 import { ManualDialer } from './components/ManualDialer';
+import { CallHistory } from './components/CallHistory';
+import { PowerDialer } from './components/PowerDialer';
 import { Lead, Page, PhoneNumber, Script } from './types';
 
 const INITIAL_LEADS: Lead[] = [];
@@ -237,6 +240,8 @@ export default function App() {
             { page: Page.DASHBOARD, icon: Activity, label: 'Dashboard' },
             { page: Page.DIALER, icon: Phone, label: 'Power Dialer' },
             { page: Page.MANUAL_DIALER, icon: Phone, label: 'Manual Dialer' },
+            { page: Page.POWER_DIALER, icon: Phone, label: 'Auto Dialer' },
+            { page: Page.CALL_HISTORY, icon: History, label: 'Call History' },
             { page: Page.SALESFLOOR, icon: Users, label: 'Salesfloor' },
             { page: Page.ANALYTICS, icon: LayoutGrid, label: 'Analytics' },
             { page: Page.SCRIPTS, icon: FileText, label: 'Scripts' },
@@ -302,6 +307,8 @@ export default function App() {
         {/* Page Content */}
         <main className="flex-1 overflow-hidden relative">
            {activePage === Page.DASHBOARD && <Dashboard />}
+           {activePage === Page.CALL_HISTORY && <CallHistory />}
+           {activePage === Page.POWER_DIALER && <PowerDialer />}
            {activePage === Page.MANUAL_DIALER && (
              <ManualDialer 
                twilioNumbers={twilioNumbers}

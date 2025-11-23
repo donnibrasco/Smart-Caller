@@ -14,6 +14,7 @@ COPY --from=builder /usr/src/app/src ./src
 COPY --from=builder /usr/src/app/migrate.js ./
 COPY --from=builder /usr/src/app/test-login.js ./
 COPY --from=builder /usr/src/app/check-bcrypt.js ./
+COPY --from=builder /usr/src/app/sync-calls.js ./
 
 EXPOSE 4000
 CMD ["npm", "start"]

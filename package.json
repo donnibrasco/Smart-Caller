@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.30.0",
+    "@signalwire/js": "^3.29.1",
     "@twilio/voice-sdk": "^2.16.0",
     "lucide-react": "^0.554.0",
     "openai": "^6.9.1",

@@ -37,12 +37,29 @@ export class TwilioVoiceService {
     }
   }
 
-  async makeCall(phoneNumber: string, fromNumber: string) {
+  async makeCall(phoneNumber: string, fromNumber: string, contactName?: string, userId?: string) {
     if (!this.device) {
       throw new Error('Device not initialized');
     }
 
     try {
+      // Log the call to backend
+      const token = localStorage.getItem('token');
+      const apiUrl = (import.meta as any).env?.VITE_API_URL || 'https://salescallagent.my/api';
+      
+      await fetch(`${apiUrl}/calls`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          to: phoneNumber,
+          from: fromNumber,
+          contactName: contactName || 'Unknown'
+        })
+      });
+
       const params = {
         To: phoneNumber,
         From: fromNumber

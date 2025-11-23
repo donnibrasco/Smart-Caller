@@ -24,7 +24,7 @@ app.use(cors());
 app.use(helmet());
 app.use(morgan('dev'));
 app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // Crucial for Twilio Webhooks
+app.use(express.urlencoded({ extended: true })); // Required for SignalWire/Twilio webhook parsing
 
 // Make IO accessible in routes
 app.set('io', io);

@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Mic, MicOff, PhoneOff, User, Building, History, FileText, Zap, PenTool, Database, Sparkles, Voicemail, Circle } from 'lucide-react';
 import { Lead, CallState, PhoneNumber, Script } from '../types';
-import { TwilioVoiceService } from '../services/twilioVoice';
+import { SignalWireVoiceService } from '../services/signalwireVoice';
 
 interface ActiveCallProps {
   lead: Lead;
@@ -20,7 +20,7 @@ export const ActiveCall: React.FC<ActiveCallProps> = ({ lead, callerId, isAutoDi
   const [notes, setNotes] = useState('');
   const [coachingTip, setCoachingTip] = useState<string | null>(null);
   
-  const twilioService = useRef<TwilioVoiceService | null>(null);
+  const signalwireService = useRef<SignalWireVoiceService | null>(null);
 
   useEffect(() => {
     let timer: any;
@@ -33,10 +33,10 @@ export const ActiveCall: React.FC<ActiveCallProps> = ({ lead, callerId, isAutoDi
   useEffect(() => {
     const apiUrl = import.meta.env.VITE_API_URL || 'https://salescallagent.my/api';
     
-    // Initialize Twilio Voice Service
+    // Initialize SignalWire Voice Service
     const initCall = async () => {
       try {
-        // Get Twilio token from backend
+        // Get SignalWire token from backend
         const token = localStorage.getItem('token');
         const response = await fetch(`${apiUrl}/calls/token`, {
           headers: {
@@ -50,9 +50,9 @@ export const ActiveCall: React.FC<ActiveCallProps> = ({ lead, callerId, isAutoDi
 
         const data = await response.json();
         
-        // Initialize Twilio Device
-        const service = new TwilioVoiceService();
-        twilioService.current = service;
+        // Initialize SignalWire Device
+        const service = new SignalWireVoiceService();
+        signalwireService.current = service;
 
         service.onConnect = () => {
           setStatus(CallState.CONNECTED);
@@ -74,7 +74,7 @@ export const ActiveCall: React.FC<ActiveCallProps> = ({ lead, callerId, isAutoDi
         await service.initialize(data.token);
         
         // Make the call
-        await service.makeCall(lead.phone, callerId.number);
+        await service.makeCall(lead.phone, callerId.number, lead.name);
         
       } catch (err: any) {
         console.error("Failed to connect call", err);
@@ -87,8 +87,8 @@ export const ActiveCall: React.FC<ActiveCallProps> = ({ lead, callerId, isAutoDi
     initCall();
 
     return () => {
-      if (twilioService.current) {
-        twilioService.current.destroy();
+      if (signalwireService.current) {
+        signalwireService.current.destroy();
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -106,11 +106,11 @@ export const ActiveCall: React.FC<ActiveCallProps> = ({ lead, callerId, isAutoDi
   };
 
   const toggleMute = () => {
-    if (twilioService.current) {
+    if (signalwireService.current) {
       if (isMuted) {
-        twilioService.current.unmute();
+        signalwireService.current.unmute();
       } else {
-        twilioService.current.mute();
+        signalwireService.current.mute();
       }
       setIsMuted(!isMuted);
     }
