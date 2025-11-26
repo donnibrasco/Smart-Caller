@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Phone, Delete, User } from 'lucide-react';
 import { PhoneNumber } from '../types';
+import { formatPhoneNumber } from '../utils/phoneUtils';
+import { SignalWireVoiceService } from '../services/signalwireVoice';
+
+const voiceService = new SignalWireVoiceService();
 
 interface ManualDialerProps {
   twilioNumbers: PhoneNumber[];
@@ -13,6 +17,84 @@ export const ManualDialer: React.FC<ManualDialerProps> = ({ twilioNumbers, onCal
   const [selectedCallerId, setSelectedCallerId] = useState<PhoneNumber | null>(
     twilioNumbers.length > 0 ? twilioNumbers[0] : null
   );
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [isCallActive, setIsCallActive] = useState(false);
+  const [callStatus, setCallStatus] = useState('');
+
+  useEffect(() => {
+    let isMounted = true;
+    let initializationTimeout: number | undefined;
+
+    const markInitialized = () => {
+      if (isMounted) {
+        setIsInitialized(true);
+      }
+    };
+
+    // Initialize SignalWire voice service for browser calling
+    const initializeVoice = async () => {
+      if (!isMounted) return;
+      try {
+        const initialized = await voiceService.initialize('');
+        markInitialized();
+        if (initialized) {
+          console.log('[ManualDialer] Voice service initialized - browser calling ready!');
+        } else {
+          console.log('[ManualDialer] Voice service not ready yet - will retry when needed');
+        }
+      } catch (error) {
+        console.warn('[ManualDialer] Voice initialization skipped:', error);
+        markInitialized();
+      }
+    };
+
+    // Small delay to ensure auth token is loaded
+    initializationTimeout = window.setTimeout(initializeVoice, 500);
+    
+    // Re-initialize if storage changes (user logs in)
+    const attemptReinit = (_event?: Event) => {
+      if (!isMounted) return;
+      if (localStorage.getItem('token')) {
+        console.log('[ManualDialer] Auth token detected, re-initializing voice...');
+        window.clearTimeout(initializationTimeout);
+        initializationTimeout = window.setTimeout(initializeVoice, 200);
+      }
+    };
+    
+    window.addEventListener('storage', attemptReinit);
+    window.addEventListener('voice-auth-ready', attemptReinit as EventListener);
+
+    // Set up callbacks
+    voiceService.onConnect = () => {
+      if (!isMounted) return;
+      setIsCallActive(true);
+      setCallStatus('Connected - Audio streaming in browser');
+    };
+
+    voiceService.onDisconnect = () => {
+      if (!isMounted) return;
+      setIsCallActive(false);
+      setCallStatus('');
+      setPhoneNumber('');
+      setContactName('');
+    };
+
+    voiceService.onError = (error) => {
+      if (!isMounted) return;
+      setCallStatus(`Error: ${error}`);
+      setIsCallActive(false);
+    };
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('storage', attemptReinit);
+      window.removeEventListener('voice-auth-ready', attemptReinit as EventListener);
+      if (initializationTimeout) {
+        window.clearTimeout(initializationTimeout);
+      }
+      voiceService.destroy();
+    };
+  }, []);
 
   const handleKeypadClick = (digit: string) => {
     if (phoneNumber.length < 15) {
@@ -37,7 +119,7 @@ export const ManualDialer: React.FC<ManualDialerProps> = ({ twilioNumbers, onCal
     return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
   };
 
-  const handleCall = () => {
+  const handleCall = async () => {
     if (!phoneNumber || !selectedCallerId) return;
     
     const cleaned = phoneNumber.replace(/\D/g, '');
@@ -46,10 +128,32 @@ export const ManualDialer: React.FC<ManualDialerProps> = ({ twilioNumbers, onCal
       return;
     }
 
-    const formattedNumber = `+1${cleaned}`;
-    const name = contactName.trim() || 'Manual Call';
-    
-    onCall(formattedNumber, name, selectedCallerId);
+    try {
+      setCallStatus('Initiating call...');
+      
+      // Use phone formatting utility to ensure E.164 format
+      const formattedNumber = formatPhoneNumber(phoneNumber);
+      const name = contactName.trim() || 'Manual Call';
+      
+      // Make browser call - audio will stream through browser
+      await voiceService.makeCall(
+        formattedNumber,
+        selectedCallerId.number,
+        name
+      );
+      
+      setCallStatus('Calling... Listen for audio in your browser!');
+    } catch (error: any) {
+      console.error('[ManualDialer] Call failed:', error);
+      setCallStatus(`Call failed: ${error.message}`);
+      setTimeout(() => setCallStatus(''), 3000);
+    }
+  };
+
+  const handleHangup = async () => {
+    await voiceService.hangup();
+    setIsCallActive(false);
+    setCallStatus('');
   };
 
   const keypadButtons = [
@@ -152,15 +256,44 @@ export const ManualDialer: React.FC<ManualDialerProps> = ({ twilioNumbers, onCal
             </select>
           </div>
 
-          {/* Call Button */}
+          {/* Call Button - Always Visible */}
           <button
-            onClick={handleCall}
-            disabled={phoneNumber.replace(/\D/g, '').length < 10 || !selectedCallerId}
-            className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:from-slate-300 disabled:to-slate-400 text-white py-5 rounded-xl font-bold text-lg transition-all transform hover:scale-105 active:scale-95 shadow-lg disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-3"
+            onClick={isCallActive ? handleHangup : handleCall}
+            disabled={!isInitialized || (!isCallActive && (phoneNumber.replace(/\D/g, '').length < 10 || !selectedCallerId))}
+            className={`w-full py-6 rounded-xl font-bold text-xl transition-all shadow-lg flex items-center justify-center gap-3 ${
+              isCallActive
+                ? 'bg-red-600 hover:bg-red-700 text-white cursor-pointer'
+                : !isInitialized
+                ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                : phoneNumber.replace(/\D/g, '').length >= 10 && selectedCallerId
+                ? 'bg-green-600 hover:bg-green-700 text-white cursor-pointer animate-pulse'
+                : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+            }`}
           >
-            <Phone size={24} />
-            {phoneNumber.replace(/\D/g, '').length < 10 ? 'Enter Phone Number' : 'Make Call'}
+            <Phone size={28} className={isCallActive ? 'animate-bounce' : ''} />
+            <span className="font-extrabold">
+              {isCallActive 
+                ? 'HANG UP' 
+                : !isInitialized 
+                ? 'INITIALIZING...' 
+                : phoneNumber.replace(/\D/g, '').length < 10 
+                ? `ENTER ${10 - phoneNumber.replace(/\D/g, '').length} MORE DIGITS` 
+                : 'CALL NOW'}
+            </span>
           </button>
+          
+          {/* Call Status */}
+          {callStatus && (
+            <div className={`mt-4 p-4 rounded-lg text-center font-medium ${
+              callStatus.includes('Error') || callStatus.includes('failed')
+                ? 'bg-red-100 text-red-700 border border-red-300'
+                : callStatus.includes('Connected')
+                ? 'bg-green-100 text-green-700 border border-green-300'
+                : 'bg-blue-100 text-blue-700 border border-blue-300'
+            }`}>
+              {callStatus}
+            </div>
+          )}
         </div>
 
         {/* Tips */}
@@ -177,3 +310,4 @@ export const ManualDialer: React.FC<ManualDialerProps> = ({ twilioNumbers, onCal
     </div>
   );
 };
+// Force rebuild Tue Nov 25 05:33:43 PM UTC 2025

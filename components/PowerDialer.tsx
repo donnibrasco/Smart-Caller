@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Phone, Pause, Play, SkipForward, Square, Upload, Trash2, TrendingUp, AlertCircle } from 'lucide-react';
 import powerDialerService, { PowerDialerSession, QueueItem, PowerDialerStats } from '../services/powerDialer';
+import { formatPhoneNumber } from '../utils/phoneUtils';
 
 export const PowerDialer: React.FC = () => {
   const [session, setSession] = useState<PowerDialerSession | null>(null);
@@ -52,6 +53,10 @@ export const PowerDialer: React.FC = () => {
       setIsActive(status.active);
       if (status.session) {
         setSession(status.session);
+      } else {
+        // Backend reports no active session - reset frontend state
+        setSession(null);
+        setIsActive(false);
       }
     } catch (error: any) {
       console.error('Error loading status:', error);
@@ -165,7 +170,8 @@ export const PowerDialer: React.FC = () => {
       const numbers = phoneNumbers
         .split('\n')
         .map(line => line.trim())
-        .filter(line => line.length > 0);
+        .filter(line => line.length > 0)
+        .map(number => formatPhoneNumber(number)); // Format to E.164
 
       await powerDialerService.addToQueue(numbers, campaignId || undefined);
       setPhoneNumbers('');
@@ -343,10 +349,10 @@ export const PowerDialer: React.FC = () => {
                   <button
                     onClick={handleStart}
                     disabled={loading || totalQueue === 0}
-                    className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-extrabold py-4 px-6 rounded-lg flex items-center justify-center gap-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                   >
-                    <Play className="w-5 h-5" />
-                    Start Dialing
+                    <Play className="w-6 h-6" />
+                    START POWER DIALER
                   </button>
                 ) : (
                   <>
@@ -354,38 +360,38 @@ export const PowerDialer: React.FC = () => {
                       <button
                         onClick={handleResume}
                         disabled={loading}
-                        className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2"
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-4 px-6 rounded-lg flex items-center justify-center gap-3 text-lg shadow-lg"
                       >
-                        <Play className="w-5 h-5" />
-                        Resume
+                        <Play className="w-6 h-6" />
+                        RESUME DIALING
                       </button>
                     ) : (
                       <button
                         onClick={handlePause}
                         disabled={loading}
-                        className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2"
+                        className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-extrabold py-4 px-6 rounded-lg flex items-center justify-center gap-3 text-lg shadow-lg"
                       >
-                        <Pause className="w-5 h-5" />
-                        Pause
+                        <Pause className="w-6 h-6" />
+                        PAUSE DIALING
                       </button>
                     )}
 
                     <button
                       onClick={handleSkip}
                       disabled={loading || !session?.currentCall}
-                      className="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                      className="w-full bg-purple-600 hover:bg-purple-700 text-white font-extrabold py-4 px-6 rounded-lg flex items-center justify-center gap-3 text-lg disabled:opacity-50 shadow-lg"
                     >
-                      <SkipForward className="w-5 h-5" />
-                      Skip Current
+                      <SkipForward className="w-6 h-6" />
+                      SKIP CURRENT CALL
                     </button>
 
                     <button
                       onClick={handleStop}
                       disabled={loading}
-                      className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2"
+                      className="w-full bg-red-600 hover:bg-red-700 text-white font-extrabold py-4 px-6 rounded-lg flex items-center justify-center gap-3 text-lg shadow-lg animate-pulse"
                     >
-                      <Square className="w-5 h-5" />
-                      Stop Dialing
+                      <Square className="w-6 h-6" />
+                      STOP DIALER
                     </button>
                   </>
                 )}

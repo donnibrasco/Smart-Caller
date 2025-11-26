@@ -11,6 +11,7 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 RUN npm install --omit=dev
 COPY --from=builder /usr/src/app/src ./src
+COPY --from=builder /usr/src/app/public ./public
 COPY --from=builder /usr/src/app/migrate.js ./
 COPY --from=builder /usr/src/app/test-login.js ./
 COPY --from=builder /usr/src/app/check-bcrypt.js ./

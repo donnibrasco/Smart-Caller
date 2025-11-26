@@ -11,7 +11,8 @@ class AuthService {
   }
 
   async login(email, password) {
-    const user = await User.findOne({ where: { email } });
+    // Need to include password field for validation
+    const user = await User.scope('withPassword').findOne({ where: { email } });
     if (!user || !(await user.validatePassword(password))) {
       throw new Error('Invalid credentials');
     }

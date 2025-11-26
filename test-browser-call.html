@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SignalWire Browser Call Test</title>
+    <script type="module">
+        import { SignalWire } from 'https://cdn.jsdelivr.net/npm/@signalwire/js@3.29.1/+esm';
+
+        let client = null;
+        let call = null;
+
+        async function login() {
+            const response = await fetch('http://localhost:4000/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: 'admin@salescallagent.my',
+                    password: 'admin123'
+                })
+            });
+            const data = await response.json();
+            localStorage.setItem('authToken', data.token);
+            document.getElementById('status').innerHTML = '✅ Logged in';
+            console.log('Auth token:', data.token);
+        }
+
+        async function initializeClient() {
+            const authToken = localStorage.getItem('authToken');
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+
+            // Get SignalWire JWT token
+            const response = await fetch('http://localhost:4000/api/calls/browser-token', {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+            const data = await response.json();
+            console.log('SignalWire JWT:', data.token);
+
+            // Initialize SignalWire client
+            client = await SignalWire({
+                host: 'adoptify.signalwire.com',
+                token: data.token,
+                logLevel: 'debug'
+            });
+
+            document.getElementById('status').innerHTML = '✅ Client initialized';
+            console.log('SignalWire client ready');
+        }
+
+        async function makeCall() {
+            if (!client) {
+                alert('Please initialize client first');
+                return;
+            }
+
+            const phoneNumber = document.getElementById('phoneNumber').value;
+            if (!phoneNumber) {
+                alert('Please enter a phone number');
+                return;
+            }
+
+            try {
+                document.getElementById('status').innerHTML = '📞 Dialing...';
+                
+                // Dial the number
+                call = await client.dial({
+                    to: `/public/${phoneNumber}`,
+                    nodeId: undefined
+                });
+
+                // Event listeners
+                call.on('call.state', (params) => {
+                    console.log('Call state:', params.call_state);
+                    document.getElementById('status').innerHTML = `📞 Call state: ${params.call_state}`;
+                });
+
+                call.on('call.joined', (params) => {
+                    console.log('Call connected!');
+                    document.getElementById('status').innerHTML = '✅ Call connected!';
+                });
+
+                // Start the call
+                await call.start();
+                console.log('Call started');
+            } catch (error) {
+                console.error('Call failed:', error);
+                document.getElementById('status').innerHTML = `❌ Error: ${error.message}`;
+            }
+        }
+
+        async function hangup() {
+            if (call) {
+                await call.hangup();
+                call = null;
+                document.getElementById('status').innerHTML = 'Call ended';
+            }
+        }
+
+        // Expose functions
+        window.login = login;
+        window.initializeClient = initializeClient;
+        window.makeCall = makeCall;
+        window.hangup = hangup;
+    </script>
+</head>
+<body style="font-family: Arial; padding: 20px;">
+    <h1>SignalWire Browser Call Test</h1>
+    
+    <div style="margin: 20px 0;">
+        <button onclick="login()" style="padding: 10px 20px; font-size: 16px;">1. Login</button>
+        <button onclick="initializeClient()" style="padding: 10px 20px; font-size: 16px;">2. Initialize Client</button>
+    </div>
+
+    <div style="margin: 20px 0;">
+        <input type="text" id="phoneNumber" placeholder="+60123456789" style="padding: 10px; font-size: 16px; width: 200px;">
+        <button onclick="makeCall()" style="padding: 10px 20px; font-size: 16px;">3. Make Call</button>
+        <button onclick="hangup()" style="padding: 10px 20px; font-size: 16px; background: red; color: white;">Hangup</button>
+    </div>
+
+    <div id="status" style="margin: 20px 0; padding: 10px; background: #f0f0f0; border-radius: 5px;">
+        Ready to test
+    </div>
+
+    <div style="margin: 20px 0; padding: 10px; background: #fff3cd; border-radius: 5px;">
+        <strong>Instructions:</strong>
+        <ol>
+            <li>Click "Login" to authenticate</li>
+            <li>Click "Initialize Client" to set up SignalWire</li>
+            <li>Enter a phone number and click "Make Call"</li>
+            <li>Check browser console for detailed logs</li>
+        </ol>
+    </div>
+</body>
+</html>

@@ -44,32 +44,141 @@ const INITIAL_SCRIPTS: Script[] = [
   }
 ];
 
-const Settings = () => (
-  <div className="p-8 max-w-2xl mx-auto overflow-y-auto h-full">
-    <h2 className="text-2xl font-bold text-slate-800 mb-6">Settings & Integrations</h2>
-    
-    <div className="space-y-6">
-      {/* Twilio Config */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
-        <h3 className="font-semibold text-slate-800 border-b border-slate-100 pb-2">Twilio Voice Configuration</h3>
-        <div className="p-4 bg-blue-50 border-l-4 border-blue-400 text-blue-800 text-sm mb-4">
-          <strong>Integration Status:</strong> Connected. Backend webhook URLs are configured for production usage.
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Account SID</label>
-          <input type="text" className="w-full border border-slate-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm" placeholder="AC..." />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Auth Token</label>
-          <input type="password" className="w-full border border-slate-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm" placeholder="••••••••••••••••" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">TwiML App SID</label>
-          <input type="text" className="w-full border border-slate-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm" placeholder="AP..." />
-        </div>
-      </div>
+const readStoredSetting = (key: string, fallback: string) => {
+  if (typeof window === 'undefined') {
+    return fallback;
+  }
+  const stored = window.localStorage.getItem(key);
+  return stored ?? fallback;
+};
 
-      {/* CRM Integration */}
+const Settings: React.FC = () => {
+  const [spaceDomain, setSpaceDomain] = React.useState(() => readStoredSetting('signalwire.spaceDomain', 'adoptify.signalwire.com'));
+  const [projectId, setProjectId] = React.useState(() => readStoredSetting('signalwire.projectId', ''));
+  const [apiToken, setApiToken] = React.useState(() => readStoredSetting('signalwire.apiToken', ''));
+  const [phoneNumber, setPhoneNumber] = React.useState(() => readStoredSetting('signalwire.phoneNumber', ''));
+  const [applicationSid, setApplicationSid] = React.useState(() => readStoredSetting('signalwire.applicationSid', ''));
+  const [saveStatus, setSaveStatus] = React.useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [showApiToken, setShowApiToken] = React.useState(false);
+
+  const handleSave = React.useCallback(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    setSaveStatus('saving');
+
+    try {
+      window.localStorage.setItem('signalwire.spaceDomain', spaceDomain.trim());
+      window.localStorage.setItem('signalwire.projectId', projectId.trim());
+      window.localStorage.setItem('signalwire.apiToken', apiToken.trim());
+      window.localStorage.setItem('signalwire.phoneNumber', phoneNumber.trim());
+      window.localStorage.setItem('signalwire.applicationSid', applicationSid.trim());
+
+      setSaveStatus('success');
+      window.setTimeout(() => setSaveStatus('idle'), 2500);
+    } catch (error) {
+      console.error('[Settings] Failed to persist SignalWire configuration', error);
+      setSaveStatus('error');
+    }
+  }, [spaceDomain, projectId, apiToken, phoneNumber, applicationSid]);
+
+  return (
+    <div className="p-8 max-w-2xl mx-auto overflow-y-auto h-full">
+      <h2 className="text-2xl font-bold text-slate-800 mb-6">Settings & Integrations</h2>
+
+      <div className="space-y-6">
+        {/* SignalWire Config */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-5">
+          <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
+            <h3 className="font-semibold text-slate-800">SignalWire Voice Configuration</h3>
+            {saveStatus === 'success' && (
+              <span className="text-sm text-emerald-600 font-medium">Saved locally</span>
+            )}
+          </div>
+          <div className="p-4 bg-emerald-50 border-l-4 border-emerald-500 text-emerald-800 text-sm rounded">
+            <strong>Integration Status:</strong>{' '}
+            {spaceDomain.trim()
+              ? `Linked to ${spaceDomain.trim()}${projectId.trim() ? ` • Project ${projectId.trim()}` : ''}`
+              : 'Not configured yet.'}
+            <p className="mt-2 text-xs text-emerald-700">
+              These settings are stored securely in your browser until a backend configuration endpoint is available.
+            </p>
+          </div>
+
+          <div className="grid gap-5 md:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Space Domain</label>
+              <input
+                type="text"
+                value={spaceDomain}
+                onChange={(event) => setSpaceDomain(event.target.value)}
+                className="w-full border border-slate-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
+                placeholder="your-space.signalwire.com"
+              />
+              <p className="mt-1 text-xs text-slate-500">Found in the top-left of your SignalWire dashboard.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Default Caller ID (E.164)</label>
+              <input
+                type="tel"
+                value={phoneNumber}
+                onChange={(event) => setPhoneNumber(event.target.value)}
+                className="w-full border border-slate-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
+                placeholder="+15551234567"
+              />
+              <p className="mt-1 text-xs text-slate-500">Use an active SignalWire phone number in international format.</p>
+            </div>
+          </div>
+
+          <div className="grid gap-5 md:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Project ID</label>
+              <input
+                type="text"
+                value={projectId}
+                onChange={(event) => setProjectId(event.target.value)}
+                className="w-full border border-slate-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 outline-none font-mono text-xs tracking-tight"
+                placeholder="7bd92817-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+              />
+              <p className="mt-1 text-xs text-slate-500">Available under Project Settings → API.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Application SID</label>
+              <input
+                type="text"
+                value={applicationSid}
+                onChange={(event) => setApplicationSid(event.target.value)}
+                className="w-full border border-slate-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-emerald-500 outline-none font-mono text-xs tracking-tight"
+                placeholder="1b9ba69b-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+              />
+              <p className="mt-1 text-xs text-slate-500">Used for browser-to-PSTN call flows (compatible with TwiML apps).</p>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">API Token</label>
+            <div className="relative">
+              <input
+                type={showApiToken ? 'text' : 'password'}
+                value={apiToken}
+                onChange={(event) => setApiToken(event.target.value)}
+                className="w-full border border-slate-300 rounded-md px-3 py-2 pr-28 focus:ring-2 focus:ring-emerald-500 outline-none font-mono text-xs tracking-tight"
+                placeholder="PTxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              />
+              <button
+                type="button"
+                onClick={() => setShowApiToken((prev) => !prev)}
+                className="absolute inset-y-1 right-1 px-3 text-xs font-medium text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200"
+              >
+                {showApiToken ? 'Hide' : 'Show'}
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-slate-500">Create a token with Voice permissions. Keep this value private.</p>
+          </div>
+        </div>
+
+        {/* CRM Integration */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
         <h3 className="font-semibold text-slate-800 border-b border-slate-100 pb-2">CRM Connections</h3>
         
@@ -96,14 +205,29 @@ const Settings = () => (
         </div>
       </div>
 
-      <div className="pt-4 flex justify-end">
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors font-medium shadow-sm">
-          Save Configuration
-        </button>
+        <div className="pt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-slate-500">Saving will update the configuration stored in this browser profile.</p>
+          <div className="flex items-center gap-3">
+            {saveStatus === 'error' && (
+              <span className="text-sm text-red-600">Could not save. Please check browser storage permissions.</span>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={saveStatus === 'saving'}
+              className={`px-4 py-2 rounded-md transition-colors font-medium shadow-sm text-white ${
+                saveStatus === 'saving'
+                  ? 'bg-emerald-400 cursor-wait'
+                  : 'bg-emerald-600 hover:bg-emerald-700'
+              }`}
+            >
+              {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'success' ? 'Saved' : 'Save Configuration'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -199,6 +323,9 @@ export default function App() {
     setAuthToken(token);
     setCurrentUser(user);
     setIsAuthenticated(true);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('voice-auth-ready'));
+    }
   };
 
   const handleLogout = () => {

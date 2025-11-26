@@ -128,6 +128,9 @@ exports.getStatus = async (req, res) => {
   try {
     const userId = req.user.id;
 
+    // Cleanup stuck items before returning status
+    await powerDialerService.cleanupStuckItems(userId);
+
     const session = powerDialerService.getSessionStatus(userId);
 
     if (!session) {

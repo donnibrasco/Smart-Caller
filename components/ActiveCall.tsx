@@ -1,8 +1,7 @@
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Mic, MicOff, PhoneOff, User, Building, History, FileText, Zap, PenTool, Database, Sparkles, Voicemail, Circle } from 'lucide-react';
 import { Lead, CallState, PhoneNumber, Script } from '../types';
-import { SignalWireVoiceService } from '../services/signalwireVoice';
 
 interface ActiveCallProps {
   lead: Lead;
@@ -19,8 +18,6 @@ export const ActiveCall: React.FC<ActiveCallProps> = ({ lead, callerId, isAutoDi
   const [activeTab, setActiveTab] = useState<'script' | 'notes' | 'crm'>('script');
   const [notes, setNotes] = useState('');
   const [coachingTip, setCoachingTip] = useState<string | null>(null);
-  
-  const signalwireService = useRef<SignalWireVoiceService | null>(null);
 
   useEffect(() => {
     let timer: any;
@@ -31,64 +28,75 @@ export const ActiveCall: React.FC<ActiveCallProps> = ({ lead, callerId, isAutoDi
   }, [status]);
 
   useEffect(() => {
-    const apiUrl = import.meta.env.VITE_API_URL || 'https://salescallagent.my/api';
-    
-    // Initialize SignalWire Voice Service
+    // Make call using SignalWire browser WebRTC
     const initCall = async () => {
       try {
-        // Get SignalWire token from backend
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${apiUrl}/calls/token`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
+        console.log('[ActiveCall] Initiating WebRTC call to:', lead.phone);
+        
+        setStatus(CallState.DIALING);
+        
+        // Import the SignalWire voice service
+        const { SignalWireVoiceService } = await import('../services/signalwireVoice');
+        const voiceService = new SignalWireVoiceService();
+        
+        // Set up callbacks
+        voiceService.onStateChange = (state) => {
+          console.log('[ActiveCall] State changed:', state.status);
+          
+          switch (state.status) {
+            case 'connecting':
+              setStatus(CallState.DIALING);
+              break;
+            case 'ringing':
+              setStatus(CallState.RINGING);
+              break;
+            case 'active':
+              setStatus(CallState.CONNECTED);
+              break;
+            case 'ended':
+              setTimeout(() => onHangup(), 1000);
+              break;
+            case 'failed':
+              alert('Call failed');
+              onHangup();
+              break;
           }
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to get voice token');
-        }
-
-        const data = await response.json();
-        
-        // Initialize SignalWire Device
-        const service = new SignalWireVoiceService();
-        signalwireService.current = service;
-
-        service.onConnect = () => {
-          setStatus(CallState.CONNECTED);
         };
         
-        service.onDisconnect = () => {
-          setStatus(CallState.ENDING);
-          setTimeout(() => {
-            onHangup();
-          }, 1500);
-        };
-
-        service.onError = (error) => {
-          console.error('Call error:', error);
-          alert(`Call error: ${error}`);
+        voiceService.onError = (error) => {
+          console.error('[ActiveCall] Call error:', error);
+          alert(`Call failed: ${error}`);
           onHangup();
         };
-
-        await service.initialize(data.token);
         
-        // Make the call
-        await service.makeCall(lead.phone, callerId.number, lead.name);
+        // Make the call with WebRTC (audio will play in browser)
+        await voiceService.makeCall(
+          lead.phone,
+          callerId.number,
+          lead.name
+        );
+        
+        console.log('[ActiveCall] ✅ WebRTC call initiated with browser audio');
+        
+        // Store service for cleanup
+        (window as any).__currentVoiceService = voiceService;
         
       } catch (err: any) {
-        console.error("Failed to connect call", err);
-        const errorMessage = err.message || "Unknown error";
+        console.error('[ActiveCall] Failed to connect call:', err);
+        const errorMessage = err?.message || err?.toString() || 'Unknown error';
         alert(`Could not connect call: ${errorMessage}`);
         onHangup();
       }
     };
 
     initCall();
-
+    
+    // Cleanup on unmount
     return () => {
-      if (signalwireService.current) {
-        signalwireService.current.destroy();
+      const voiceService = (window as any).__currentVoiceService;
+      if (voiceService) {
+        voiceService.hangup().catch(console.error);
+        delete (window as any).__currentVoiceService;
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -105,14 +113,15 @@ export const ActiveCall: React.FC<ActiveCallProps> = ({ lead, callerId, isAutoDi
     onHangup();
   };
 
-  const toggleMute = () => {
-    if (signalwireService.current) {
-      if (isMuted) {
-        signalwireService.current.unmute();
-      } else {
-        signalwireService.current.mute();
+  const toggleMute = async () => {
+    try {
+      const voiceService = (window as any).__currentVoiceService;
+      if (voiceService) {
+        const muted = await voiceService.toggleMute();
+        setIsMuted(muted);
       }
-      setIsMuted(!isMuted);
+    } catch (error) {
+      console.error('[ActiveCall] Toggle mute failed:', error);
     }
   };
 
@@ -318,13 +327,10 @@ export const ActiveCall: React.FC<ActiveCallProps> = ({ lead, callerId, isAutoDi
              <button 
                onClick={onHangup}
                className="bg-red-500 hover:bg-red-600 text-white p-5 rounded-full shadow-lg shadow-red-200 transform hover:scale-105 transition-all flex items-center space-x-2 px-8"
+               title="End Call"
              >
                <PhoneOff size={32} />
-               {isAutoDialing && (
-                   <div className="flex flex-col items-start ml-2 text-xs text-red-100 opacity-80">
-                       <span className="font-bold uppercase">Next</span>
-                   </div>
-               )}
+               <span className="font-bold text-sm ml-2">End Call</span>
              </button>
 
              <button 

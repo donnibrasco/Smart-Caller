@@ -59,12 +59,35 @@ class SignalWireController {
         });
       }
 
-      console.log(`[SignalWire] Initiating call from ${from} to ${to}`);
+      // Format phone numbers to E.164 format
+      const formatPhone = (phone) => {
+        // Remove all non-numeric characters except +
+        let cleaned = phone.replace(/[^\d+]/g, '');
+        
+        // If it doesn't start with +, add +1 for US/Canada
+        if (!cleaned.startsWith('+')) {
+          // Remove leading 1 if present
+          if (cleaned.startsWith('1') && cleaned.length === 11) {
+            cleaned = '+' + cleaned;
+          } else if (cleaned.length === 10) {
+            cleaned = '+1' + cleaned;
+          } else {
+            cleaned = '+' + cleaned;
+          }
+        }
+        
+        return cleaned;
+      };
+
+      const formattedTo = formatPhone(to);
+      const formattedFrom = formatPhone(from);
+
+      console.log(`[SignalWire] Initiating call from ${formattedFrom} to ${formattedTo}`);
 
       // Create call via SignalWire
       const call = await this.client.calls.create({
-        from: from,
-        to: to,
+        from: formattedFrom,
+        to: formattedTo,
         url: `${process.env.BACKEND_URL}/api/calls/make`,
         statusCallback: `${process.env.BACKEND_URL}/api/webhooks/call-status`,
         statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
@@ -75,8 +98,8 @@ class SignalWireController {
       // Save to database
       const callRecord = await Call.create({
         userId,
-        to,
-        from,
+        to: formattedTo,
+        from: formattedFrom,
         contactName: contactName || 'Unknown',
         twilioSid: call.sid,
         direction: 'outbound',

@@ -19,20 +19,23 @@ router.post('/auth/login', authController.login);
 router.post('/auth/register', authController.register);
 
 // Calls
-router.get('/calls/token', authMiddleware, callController.getToken);
-router.post('/calls', authMiddleware, callController.createCall);
+router.post('/calls', authMiddleware, callController.initiateCall);
 router.get('/calls/history', authMiddleware, callController.getCallHistory);
-router.post('/calls/initiate', authMiddleware, signalwireController.initiateCall.bind(signalwireController));
-router.get('/calls/:callSid/status', authMiddleware, signalwireController.getCallStatus.bind(signalwireController));
-router.post('/calls/:callSid/hangup', authMiddleware, signalwireController.hangupCall.bind(signalwireController));
+router.post('/calls/initiate', authMiddleware, callController.initiateCall);
+router.get('/calls/browser-token', authMiddleware, callController.getBrowserToken);
+router.post('/calls/browser-dial', callController.browserDial);
 
 // SignalWire
 router.get('/twilio/phone-numbers', authMiddleware, signalwireController.listPhoneNumbers.bind(signalwireController));
 
+// Call control endpoints (used by SignalWire to get TwiML instructions)
+router.post('/calls/make', callController.makeCall);
+
 // SignalWire Webhooks (Protected by signature validation and rate limiting)
-router.post('/webhooks/voice', webhookRateLimit, validateSignalWireSignature, callController.makeCall);
+router.post('/webhooks/voice', webhookRateLimit, callController.makeCall);
 router.post('/webhooks/call-status', webhookRateLimit, validateSignalWireSignature, callController.webhookStatus);
 router.post('/webhooks/recording-status', webhookRateLimit, validateSignalWireSignature, recordingController.recordingStatusWebhook);
+router.post('/webhooks/recording', recordingController.recordingStatusWebhook);
 router.post('/webhooks/amd-status', webhookRateLimit, validateSignalWireSignature, voicemailController.amdStatusWebhook);
 
 // Recording endpoints

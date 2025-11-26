@@ -400,6 +400,41 @@ class PowerDialerService {
   }
 
   /**
+   * Cleanup stuck queue items (reset calling -> pending when no active session)
+   */
+  async cleanupStuckItems(userId) {
+    try {
+      // Only cleanup if there's no active session
+      if (this.activeSessions.has(userId)) {
+        return 0;
+      }
+
+      // Reset any items stuck in "calling" status back to pending
+      const [updated] = await PowerDialerQueue.update(
+        { 
+          status: 'pending',
+          outcome: 'pending'
+        },
+        {
+          where: {
+            userId,
+            status: 'calling'
+          }
+        }
+      );
+
+      if (updated > 0) {
+        console.log(`Reset ${updated} stuck calling items for user ${userId}`);
+      }
+
+      return updated;
+    } catch (error) {
+      console.error('Error cleaning up stuck items:', error);
+      return 0;
+    }
+  }
+
+  /**
    * Add numbers to queue
    */
   async addToQueue(userId, phoneNumbers, options = {}) {
